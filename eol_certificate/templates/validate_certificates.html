@@ -1,0 +1,36 @@
+# -*- coding: utf-8 -*-
+<%page expression_filter="h"/>
+<%! from django.utils.translation import ugettext as _ %>
+<%namespace name='static' file='/static_content.html'/>
+<%inherit file="../main.html" />
+
+<%block name="pagetitle">${_("Certificate Validation")}</%block>
+
+<link rel="stylesheet" type="text/css" href="${static.url('eol_certificates/css/main.css')}"/>
+
+<main id="eol-certificates" aria-label="Content" tabindex="-1" class="eol-bg w-100 mx-auto mt-0 pt-0">
+    <div class="container eol-content-container px-2 mx-auto">
+        <div class="row">
+            <div class="certificates-card col-11 col-md-8 col-lg-6 mx-auto shadow-lg px-5 py-4 mb-5 bg-white rounded-lg">
+                <h3 class="certificates-header pb-2 mb-4">${_("Certificate Validation")}</h3>
+                <form method="POST">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${ csrftoken }"/>
+                    <div class="form-group">
+                        <label for="inputID">${_("Certificate ID number")}</label>
+                        % if context.get('_id', UNDEFINED) is not UNDEFINED:
+                            <input type="text" class="form-control mt-1" name='cert-id' value="${_id}"></input>
+                        % else:
+                            <input type="text" class="form-control mt-1" name='cert-id' placeholder="9c7f2edd26f7477a8b9fb05f763f869c"></input>
+                        % endif
+                    </div>
+                    % if context.get('exists', UNDEFINED) is not UNDEFINED:
+                        % if context.get('exists') is False:
+                            <p class="certificate-not-found">${_("Certificate was not found")}</p>
+                        % endif
+                    % endif
+                    <input type="submit" class="btn btn-primary mx-auto w-100" value="${_("Validate")}">
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
