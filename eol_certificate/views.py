@@ -9,6 +9,9 @@ from lms.djangoapps.certificates.models import GeneratedCertificate
 
 @require_http_methods(("GET", "POST"))
 def validate_certificate(request):
+    """
+    Allows you to check if an specific uuid has a certificate
+    """
     context = {"csrftoken": csrf(request)["csrf_token"]}
     if request.method == "POST":
         cert_id = request.POST.get('cert-id')
