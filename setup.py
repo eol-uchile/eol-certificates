@@ -7,7 +7,7 @@ setuptools.setup(
     author_email="eol-ing@uchile.cl",
     description="EOL Certificates",
     long_description="EOL Certificates",
-    url="https://github.com/eol-uchile/eol_certificates",
+    url="https://github.com/eol-uchile/eol-certificates",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
