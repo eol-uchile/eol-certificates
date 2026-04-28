@@ -11,7 +11,7 @@ class EolCertificateConfig(AppConfig):
     plugin_app = {
         PluginURLs.CONFIG: {
             ProjectType.LMS: {
-                PluginURLs.NAMESPACE: '',
+                PluginURLs.NAMESPACE: 'eol_certificates',
                 PluginURLs.REGEX: r'^',
                 PluginURLs.RELATIVE_PATH: 'urls',
             }},
