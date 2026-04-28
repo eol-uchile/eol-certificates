@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="eol_certificates",
-    version="0.0.1",
+    version="0.1.0",
     author="Oficina EOL UChile",
     author_email="eol-ing@uchile.cl",
     description="EOL Certificates",
