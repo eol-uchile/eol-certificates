@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-
-
+# Installed packages (via pip)
 from django.apps import AppConfig
-from openedx.core.djangoapps.plugins.constants import PluginSettings, PluginURLs, ProjectType, SettingsType
 
+# Edx dependencies
+from openedx.core.djangoapps.plugins.constants import PluginSettings, PluginURLs, ProjectType, SettingsType
 
 class EolCertificateConfig(AppConfig):
     name = 'eol_certificates'
@@ -11,7 +11,7 @@ class EolCertificateConfig(AppConfig):
     plugin_app = {
         PluginURLs.CONFIG: {
             ProjectType.LMS: {
-                PluginURLs.NAMESPACE: '',
+                PluginURLs.NAMESPACE: 'eol_certificates',
                 PluginURLs.REGEX: r'^',
                 PluginURLs.RELATIVE_PATH: 'urls',
             }},

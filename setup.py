@@ -2,12 +2,12 @@ import setuptools
 
 setuptools.setup(
     name="eol_certificates",
-    version="0.0.1",
+    version="0.1.0",
     author="Oficina EOL UChile",
     author_email="eol-ing@uchile.cl",
     description="EOL Certificates",
     long_description="EOL Certificates",
-    url="https://github.com/eol-uchile/eol_certificates",
+    url="https://github.com/eol-uchile/eol-certificates",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
