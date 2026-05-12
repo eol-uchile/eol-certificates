@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: OPEN 0.1.0\n"
 "Report-Msgid-Bugs-To: eol-ing@uchile.cl\n"
-"POT-Creation-Date: 2026-05-05 21:43+0000\n"
+"POT-Creation-Date: 2026-05-12 19:47+0000\n"
 "PO-Revision-Date: 2026-04-27 13:04+0000\n"
 "Last-Translator: EOL <eol-ing@uchile.cl>\n"
 "Language: en\n"
@@ -18,8 +18,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: eol_certificates/tests.py:58 eol_certificates/tests.py:63
-#: eol_certificates/views.py:46
+#: eol_certificates/tests.py:74 eol_certificates/tests.py:79
+#: eol_certificates/views.py:65
 msgid "Certificate was not found"
 msgstr "Certificado no encontrado"
 
@@ -39,4 +39,17 @@ msgstr "ID de certificado"
 #: eol_certificates/templates/eol_certificates/validate_certificates.html:29
 msgid "Validate"
 msgstr "Validar"
+
+#: eol_certificates/templates/instructor/instructor_dashboard_2/eol_report_certificate.html:17
+msgid ""
+"Generates a report containing the issued certificates for each user in "
+"this course"
+msgstr ""
+"Genera un reporte con los certificados emitidos para cada usuario en este"
+" curso"
+
+
+#: eol_certificates/templates/instructor/instructor_dashboard_2/eol_report_certificate.html:19
+msgid "Download report certificate"
+msgstr "Descargar reporte de certificados"
 
