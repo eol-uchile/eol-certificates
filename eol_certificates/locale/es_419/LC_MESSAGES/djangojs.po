@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: OPEN 0.1.0\n"
 "Report-Msgid-Bugs-To: eol-ing@uchile.cl\n"
-"POT-Creation-Date: 2026-05-05 21:43+0000\n"
+"POT-Creation-Date: 2026-05-12 21:47+0000\n"
 "PO-Revision-Date: 2026-04-27 13:04+0000\n"
 "Last-Translator: EOL <eol-ing@uchile.cl>\n"
 "Language: es_419\n"
@@ -17,4 +17,28 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+#: eol_certificates/static/eol_certificates/js/eolreportcertificate.js:13
+msgid "The report is being generated and will be available for download shortly."
+msgstr ""
+"El reporte se está generando, en un momento estará disponible para "
+"descargar."
+
+#: eol_certificates/static/eol_certificates/js/eolreportcertificate.js:17
+msgid "The report is being generated. Please wait."
+msgstr "El reporte ya se está generando, por favor espere."
+
+#: eol_certificates/static/eol_certificates/js/eolreportcertificate.js:25
+#: eol_certificates/static/eol_certificates/js/eolreportcertificate.js:44
+msgid ""
+"An error occurred during export. Please refresh the page and try again. "
+"If the error persists, please contact support (eol-ayuda@uchile.cl)."
+msgstr ""
+"Error al exportar, actualice la página e intentelo nuevamente, si el error"
+" persiste contáctese con la mesa de ayuda(eol-ayuda@uchile.cl).
+
+#: eol_certificates/static/eol_certificates/js/eolreportcertificate.js:41
+msgid "The user does not have permission to perform this action."
+msgstr "Usuario no tiene permisos para realizar esta acción."
+
 

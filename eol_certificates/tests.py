@@ -1,13 +1,29 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Python Standard Libraries
+import json
+import urllib
+
 # Installed packages (via pip)
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils.translation import ugettext as _
 from mock import patch
+import six
 
 # Edx dependencies
-from common.djangoapps.student.tests.factories import UserFactory
+from common.djangoapps.student.roles import CourseInstructorRole, CourseStaffRole 
+from common.djangoapps.student.tests.factories import CourseAccessRoleFactory, CourseEnrollmentFactory, UserFactory
 from lms.djangoapps.certificates.models import GeneratedCertificate
+from lms.djangoapps.instructor_task.models import ReportStore
+from opaque_keys.edx.keys import CourseKey
+from openedx.core.djangoapps.content.course_overviews.models import CourseOverview
+from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
+from xmodule.modulestore.tests.factories import CourseFactory
+
+# Internal project dependencies
+from .views import EolReportCertificateView
+from .utils import get_all_enrolled_users, _get_utf8_encoded_row, task_get_data
 
 class TestEolCertificate(TestCase):
     def setUp(self):
@@ -61,3 +77,240 @@ class TestEolCertificate(TestCase):
         result  = self.client.post(url ,{'cert-id': 'fake-id'})
         self.assertEqual(result.status_code, 200)
         self.assertContains(result, _('Certificate was not found'))
+
+class TestEolReportCertificateView(ModuleStoreTestCase):
+    def setUp(self):
+        super(TestEolReportCertificateView, self).setUp()
+        self.course = CourseFactory.create(
+            org='mss',
+            course='999',
+            display_name='2021',
+            emit_signals=True)
+        aux = CourseOverview.get_from_id(self.course.id)
+        with patch('common.djangoapps.student.models.cc.User.save'):
+            # staff user
+            self.client_instructor = Client()
+            self.client_student = Client()
+            self.client_anonymous = Client()
+            self.user_instructor = UserFactory(
+                username='instructor',
+                password='12345',
+                email='instructor@edx.org')
+            role = CourseInstructorRole(self.course.id)
+            role.add_users(self.user_instructor)
+            self.client_instructor.login(
+                username='instructor', password='12345')
+            self.user_staff_role = UserFactory(
+                username='staff_role',
+                password='12345',
+                email='staff_role@edx.org')
+            role2 = CourseStaffRole(self.course.id)
+            role2.add_users(self.user_staff_role)
+            self.student = UserFactory(
+                username='student',
+                password='test',
+                email='student@edx.org')
+            self.gc1 = GeneratedCertificate.objects.create(user=self.student, course_id=self.course.id, verify_uuid='12350e8c6d464bb395a1fb39013ba4f4', status='downloadable', mode='honor')
+            self.student_2 = UserFactory(
+                username='student_2',
+                password='test',
+                email='student2@edx.org')
+            self.gc2 = GeneratedCertificate.objects.create(user=self.student_2, course_id=self.course.id, verify_uuid='45650e8c6d464bb395a1fb39013ba4f4', status='downloadable', mode='honor')
+            self.student_3 = UserFactory(
+                username='student_3',
+                password='test',
+                email='student3@edx.org')
+            GeneratedCertificate.objects.create(user=self.student_3, course_id=self.course.id, verify_uuid='78950e8c6d464bb395a1fb39013ba4f4', status='unavailable', mode='honor')
+            # Enroll the student in the course
+            CourseEnrollmentFactory(
+                user=self.student, course_id=self.course.id, mode='honor')
+            CourseEnrollmentFactory(
+                user=self.student_2, course_id=self.course.id, mode='honor')
+            CourseEnrollmentFactory(
+                user=self.student_3, course_id=self.course.id, mode='honor')
+            self.client_student.login(
+                username='student', password='test')
+            # Create and Enroll data researcher user
+            self.data_researcher_user = UserFactory(
+                username='data_researcher_user',
+                password='test',
+                email='data.researcher@edx.org')
+            CourseEnrollmentFactory(
+                user=self.data_researcher_user,
+                course_id=self.course.id, mode='audit')
+            CourseAccessRoleFactory(
+                course_id=self.course.id,
+                user=self.data_researcher_user,
+                role='data_researcher',
+                org=self.course.id.org
+            )
+            self.client_data_researcher = Client()
+            self.assertTrue(self.client_data_researcher.login(username='data_researcher_user', password='test'))
+    
+    def _verify_csv_file_report(self, report_store, expected_data):
+        """
+        Verify course survey data.
+        """
+        report_csv_filename = report_store.links_for(self.course.id)[0][0]
+        report_path = report_store.path_to(self.course.id, report_csv_filename)
+        with report_store.storage.open(report_path) as csv_file:
+            csv_file_data = csv_file.read()
+            # Removing unicode signature (BOM) from the beginning
+            csv_file_data = csv_file_data.decode("utf-8-sig")
+            for data in expected_data:
+                self.assertIn(data, csv_file_data)
+    
+    def _verify_csv_file_report_not_in(self, report_store, expected_data):
+        """
+        Verify course survey data.
+        """
+        report_csv_filename = report_store.links_for(self.course.id)[0][0]
+        report_path = report_store.path_to(self.course.id, report_csv_filename)
+        with report_store.storage.open(report_path) as csv_file:
+            csv_file_data = csv_file.read()
+            # Removing unicode signature (BOM) from the beginning
+            csv_file_data = csv_file_data.decode("utf-8-sig")
+            for data in expected_data:
+                self.assertNotIn(data, csv_file_data)
+
+    def test_eolreportcertificate_post(self):
+        """
+        Test eolreportcertificate view
+        """
+        response = self.client_instructor.post('{}?{}'.format(reverse('eol_certificates:issued_certificates'), urllib.parse.urlencode({'course': str(self.course.id)})))
+        self.assertEqual(response.status_code, 405)
+
+    @patch('eol_certificates.utils.get_user_id_with_indiv_id_list')
+    def test_get_enrolled_users_with_indiv_id(self, mock_user_id_with_indiv_id_list):
+        """
+        Test get_all_enrolled_users when the users have a indiv_id associated with them.
+        """
+        mock_user_id_with_indiv_id_list.return_value = [(self.student.id, '1234567K'), (self.student_2.id, '12345678')]
+        print(mock_user_id_with_indiv_id_list)
+        print(mock_user_id_with_indiv_id_list.called)
+        enrolled_users = get_all_enrolled_users(self.course.id, 'this_is_a_url')
+        self.assertEqual(enrolled_users[0][1], '1234567K')
+        self.assertEqual(enrolled_users[1][1], '12345678')
+
+    @patch('eol_certificates.utils.get_user_id_with_indiv_id_list')
+    def test_get_enrolled_users_without_indiv_id(self, mock_user_id_with_indiv_id_list):
+        """
+        Test get_all_enrolled_users when the users doesn't have a indiv_id associated with them.
+        """
+        mock_user_id_with_indiv_id_list.return_value = []
+        enrolled_users = get_all_enrolled_users(self.course.id, 'this_is_a_url')
+        self.assertEqual(enrolled_users[0][1], '')
+        self.assertEqual(enrolled_users[1][1], '')
+
+    @patch('eol_certificates.utils.get_user_id_with_indiv_id_list')
+    def test_eolreportcertificate_get_view(self, mock_user_id_with_indiv_id_list):
+        """
+        Test eolreportcertificate get normal process
+        """
+        mock_user_id_with_indiv_id_list.return_value = [(self.student.id, '09472337K')]
+        task_input = {'base_url': 'this_is_a_url'}
+        with patch('lms.djangoapps.instructor_task.tasks_helper.runner._get_current_task'):
+            result = task_get_data(
+                None, None, self.course.id,
+                task_input, 'EOL_REPORT_CERTIFICATE'
+            )
+        report_store = ReportStore.from_config(config_name='GRADES_DOWNLOAD')
+        header_row = ",".join(['Username', 'Run', 'Email', 'Modo', 'Url'])
+        student1_row = ",".join([
+            self.student.username,
+            '09472337K',
+            self.student.email,
+            self.gc1.mode,
+            '{}{}'.format(task_input['base_url'], reverse('certificates:render_cert_by_uuid', kwargs={'certificate_uuid': self.gc1.verify_uuid}))
+        ])
+        student2_row = ",".join([
+            self.student_2.username,
+            '',
+            self.student_2.email,
+            self.gc2.mode,
+            '{}{}'.format(task_input['base_url'], reverse('certificates:render_cert_by_uuid', kwargs={'certificate_uuid':self.gc2.verify_uuid}))
+        ])
+        student3_row = ",".join([
+            self.student_3.username,
+            '',
+            self.student_3.email,
+            ''
+        ])
+        expected_data = [header_row, student1_row, student2_row]
+        self._verify_csv_file_report(report_store, expected_data)
+        expected_data_2 = [student3_row]
+        self._verify_csv_file_report_not_in(report_store, expected_data_2)
+
+    def test_eolreportcertificate_no_course(self):
+        """
+        Test eolreportcertificate view when no course in get
+        """
+        url = reverse('eol_certificates:issued_certificates')
+        response = self.client_instructor.get(url)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response._container[0].decode())
+        self.assertEqual(r['status'], 'Error')
+        self.assertEqual(r['empty_course'], True)
+
+    def test_eolreportcertificate_wrong_course(self):
+        """
+        Test eolreportcertificate view when course does not exists or is wrong
+        """
+        url = '{}?{}'.format(reverse('eol_certificates:issued_certificates'), urllib.parse.urlencode({'course': 'course-v1:eol+Test101+2021'}))
+        response = self.client_instructor.get(url)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response._container[0].decode())
+        self.assertEqual(r['status'], 'Error')
+        self.assertEqual(r['error_curso'], True)
+
+    def test_eolreportcertificate_no_permission(self):
+        """
+        Test eolreportcertificate view when user dont have permission or role
+        """
+        url = '{}?{}'.format(reverse('eol_certificates:issued_certificates'), urllib.parse.urlencode({'course': str(self.course.id)}))
+        response = self.client_student.get(url)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response._container[0].decode())
+        self.assertEqual(r['status'], 'Error')
+        self.assertEqual(r['user_permission'], True)
+    
+    def test_eolreportcertificate_user_anonymous(self):
+        """
+        Test eolreportcertificate view when user is anonymous
+        """
+        url = '{}?{}'.format(reverse('eol_certificates:issued_certificates'), urllib.parse.urlencode({'course': str(self.course.id)}))
+        response = self.client_anonymous.get(url)
+        self.assertEqual(response.status_code, 404)
+    
+    def test_eolreportcertificate_check_user_permission(self):
+        """
+        Test eolreportcertificate view, verify users permission
+        """
+        self.assertTrue(EolReportCertificateView().user_have_permission(self.user_instructor, str(self.course.id)))
+        self.assertTrue(EolReportCertificateView().user_have_permission(self.data_researcher_user, str(self.course.id)))
+        self.assertTrue(EolReportCertificateView().user_have_permission(self.user_staff_role, str(self.course.id)))
+        self.assertFalse(EolReportCertificateView().user_have_permission(self.student, str(self.course.id)))
+
+    def test_validate_course_with_wrong_course_id(self):
+        """
+        Test validate_course with wrong course_id
+        """
+        result = EolReportCertificateView().validate_course('11111111')
+        self.assertFalse(result)
+
+    def test_is_instructor_or_staff_with_wrong_course_id(self):
+        """
+        Test is_instructor_or_staff with wrong course_id
+        """
+        course_key = CourseKey.from_string('test/11111111/test')
+        result = EolReportCertificateView().is_instructor_or_staff(self.client_instructor,course_key)
+        self.assertFalse(result)
+
+    def test_get_utf8_encoded_row_with_python_2(self):
+        """
+        Test if get_utf8_encoded_row respond correct to python 2
+        """
+        row = ['hola']
+        with patch.object(six, 'PY2', True):
+            result = _get_utf8_encoded_row(row)
+        assert result == [b'hola']
